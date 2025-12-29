@@ -257,26 +257,74 @@ public class ShiftController {
      * Populate form fields with selected shift data.
      */
     private void populateForm(Shift shift) {
-        idField.setText(shift.getId());
+        populateFormFromShift(shift);
+    }
+    
+    /**
+     * Public method to populate form fields from a Shift object.
+     * Can be called from UI when clicking on shifts in calendar view.
+     */
+    public void populateFormFromShift(Shift shift) {
+        if (shift == null) {
+            return;
+        }
+        
+        // Refresh employee combo box first to ensure it has current data
+        populateEmployeeComboBox();
+        
+        // Set ID field - ensure it's set even if empty
+        if (idField != null) {
+            idField.setText(shift.getId() != null ? shift.getId() : "");
+        }
         
         // Set employee in combo box
-        String employeeDisplay = shift.getEmployeeId() + " - " + shift.getEmployeeName();
-        employeeComboBox.setValue(employeeDisplay);
+        if (employeeComboBox != null && shift.getEmployeeId() != null) {
+            String employeeDisplay = shift.getEmployeeId() + " - " + shift.getEmployeeName();
+            // Ensure the value exists in the combo box items
+            if (!employeeComboBox.getItems().contains(employeeDisplay)) {
+                employeeComboBox.getItems().add(employeeDisplay);
+            }
+            employeeComboBox.setValue(employeeDisplay);
+        }
         
-        datePicker.setValue(shift.getDate());
+        if (datePicker != null && shift.getDate() != null) {
+            datePicker.setValue(shift.getDate());
+        }
         
-        // Set hour and minute combo boxes
+        // Set hour and minute combo boxes - handle minutes that might not be in combo box
         if (shift.getStartTime() != null) {
-            startHourComboBox.setValue(shift.getStartTime().getHour());
-            startMinuteComboBox.setValue(shift.getStartTime().getMinute());
+            if (startHourComboBox != null) {
+                startHourComboBox.setValue(shift.getStartTime().getHour());
+            }
+            if (startMinuteComboBox != null) {
+                int startMin = shift.getStartTime().getMinute();
+                // If minute value doesn't exist, add it
+                if (!startMinuteComboBox.getItems().contains(startMin)) {
+                    startMinuteComboBox.getItems().add(startMin);
+                    startMinuteComboBox.getItems().sort(Integer::compareTo);
+                }
+                startMinuteComboBox.setValue(startMin);
+            }
         }
         
         if (shift.getEndTime() != null) {
-            endHourComboBox.setValue(shift.getEndTime().getHour());
-            endMinuteComboBox.setValue(shift.getEndTime().getMinute());
+            if (endHourComboBox != null) {
+                endHourComboBox.setValue(shift.getEndTime().getHour());
+            }
+            if (endMinuteComboBox != null) {
+                int endMin = shift.getEndTime().getMinute();
+                // If minute value doesn't exist, add it
+                if (!endMinuteComboBox.getItems().contains(endMin)) {
+                    endMinuteComboBox.getItems().add(endMin);
+                    endMinuteComboBox.getItems().sort(Integer::compareTo);
+                }
+                endMinuteComboBox.setValue(endMin);
+            }
         }
         
-        shiftTypeComboBox.setValue(shift.getShiftType());
+        if (shiftTypeComboBox != null && shift.getShiftType() != null) {
+            shiftTypeComboBox.setValue(shift.getShiftType());
+        }
     }
 
     /**
@@ -325,6 +373,7 @@ public class ShiftController {
         return shiftList;
     }
 }
+
 
 
 

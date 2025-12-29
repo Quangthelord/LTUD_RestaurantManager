@@ -1253,6 +1253,23 @@ public class MainApp extends Application {
                     VBox shiftsContainer = new VBox(2);
                     shiftsContainer.setMaxWidth(Double.MAX_VALUE);
                     shiftsContainer.setMaxHeight(Double.MAX_VALUE);
+                    shiftsContainer.setStyle("-fx-cursor: hand;");
+                    
+                    // Store reference to first shift for container click (if multiple shifts)
+                    final Shift firstShift = shiftsStartingInSlot.get(0);
+                    
+                    // Make the entire container clickable as fallback
+                    shiftsContainer.setOnMouseClicked(e -> {
+                        if (shiftController != null && firstShift != null) {
+                            try {
+                                System.out.println("Container clicked - populating form for shift: " + firstShift.getId());
+                                shiftController.populateFormFromShift(firstShift);
+                            } catch (Exception ex) {
+                                System.err.println("Error in container click: " + ex.getMessage());
+                                populateShiftFormDirectly(firstShift);
+                            }
+                        }
+                    });
                     
                     for (Shift shift : shiftsStartingInSlot) {
                         // Calculate duration in hours (rounded up)
@@ -1274,10 +1291,18 @@ public class MainApp extends Application {
                             String.format("%02d:%02d-%02d:%02d", 
                                 shift.getStartTime().getHour(), shift.getStartTime().getMinute(),
                                 shift.getEndTime().getHour(), shift.getEndTime().getMinute()));
-                        shiftLabel.setStyle("-fx-font-size: 9px; -fx-padding: 2px; -fx-background-color: #4285f4; -fx-text-fill: white; -fx-background-radius: 3px;");
+                        shiftLabel.setStyle("-fx-font-size: 9px; -fx-padding: 2px; -fx-background-color: #4285f4; -fx-text-fill: white; -fx-background-radius: 3px; -fx-cursor: hand;");
                         shiftLabel.setMaxWidth(Double.MAX_VALUE);
                         shiftLabel.setWrapText(true);
                         shiftLabel.setAlignment(Pos.TOP_LEFT);
+                        
+                        // Add hover effect to indicate clickability
+                        shiftLabel.setOnMouseEntered(e -> {
+                            shiftLabel.setStyle("-fx-font-size: 9px; -fx-padding: 2px; -fx-background-color: #3367d6; -fx-text-fill: white; -fx-background-radius: 3px; -fx-cursor: hand;");
+                        });
+                        shiftLabel.setOnMouseExited(e -> {
+                            shiftLabel.setStyle("-fx-font-size: 9px; -fx-padding: 2px; -fx-background-color: #4285f4; -fx-text-fill: white; -fx-background-radius: 3px; -fx-cursor: hand;");
+                        });
                         
                         // Set height based on duration (each hour slot is 50px)
                         // If multiple shifts start at same time, stack them vertically
@@ -1287,12 +1312,25 @@ public class MainApp extends Application {
                         shiftLabel.setMaxHeight(heightPerShift);
                         
                         shiftLabel.setOnMouseClicked(e -> {
-                            datePicker.setValue(slotDate);
-                            // Find and select the shift in the table
-                            if (shiftTable != null) {
-                                shiftTable.getSelectionModel().select(shift);
-                                shiftController.handleTableSelection();
+                            // Use controller method to populate form - this handles all edge cases
+                            if (shiftController != null && shift != null) {
+                                try {
+                                    // Debug: Print shift data
+                                    System.out.println("Clicking shift - ID: " + shift.getId() + 
+                                        ", Employee: " + shift.getEmployeeId() + " - " + shift.getEmployeeName() +
+                                        ", Type: " + shift.getShiftType());
+                                    shiftController.populateFormFromShift(shift);
+                                    System.out.println("Form populated successfully");
+                                } catch (Exception ex) {
+                                    // Fallback: populate form directly if controller method fails
+                                    System.err.println("Error populating form via controller: " + ex.getMessage());
+                                    ex.printStackTrace();
+                                    populateShiftFormDirectly(shift);
+                                }
+                            } else {
+                                System.err.println("shiftController is null or shift is null");
                             }
+                            e.consume(); // Prevent event propagation
                         });
                         
                         // Add to shifts container
@@ -1350,6 +1388,71 @@ public class MainApp extends Application {
         String weekText = currentWeekStart.format(DateTimeFormatter.ofPattern("MMM d")) + " - " +
                           weekEnd.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
         weekLabel.setText(weekText);
+    }
+    
+    /**
+     * Fallback method to populate shift form directly (used if controller method fails).
+     */
+    private void populateShiftFormDirectly(Shift shift) {
+        if (shift == null) return;
+        
+        // Set ID field
+        if (shiftIdField != null && shift.getId() != null) {
+            shiftIdField.setText(shift.getId());
+        }
+        
+        // Refresh employee combo box and set value
+        if (employeeComboBox != null && shift.getEmployeeId() != null) {
+            if (shiftController != null) {
+                shiftController.refreshEmployeeComboBox();
+            }
+            String employeeDisplay = shift.getEmployeeId() + " - " + 
+                (shift.getEmployeeName() != null ? shift.getEmployeeName() : "");
+            if (!employeeComboBox.getItems().contains(employeeDisplay)) {
+                employeeComboBox.getItems().add(employeeDisplay);
+            }
+            employeeComboBox.setValue(employeeDisplay);
+        }
+        
+        // Set date
+        if (datePicker != null && shift.getDate() != null) {
+            datePicker.setValue(shift.getDate());
+        }
+        
+        // Set start time
+        if (shift.getStartTime() != null) {
+            if (startHourComboBox != null) {
+                startHourComboBox.setValue(shift.getStartTime().getHour());
+            }
+            if (startMinuteComboBox != null) {
+                int min = shift.getStartTime().getMinute();
+                if (!startMinuteComboBox.getItems().contains(min)) {
+                    startMinuteComboBox.getItems().add(min);
+                    startMinuteComboBox.getItems().sort(Integer::compareTo);
+                }
+                startMinuteComboBox.setValue(min);
+            }
+        }
+        
+        // Set end time
+        if (shift.getEndTime() != null) {
+            if (endHourComboBox != null) {
+                endHourComboBox.setValue(shift.getEndTime().getHour());
+            }
+            if (endMinuteComboBox != null) {
+                int min = shift.getEndTime().getMinute();
+                if (!endMinuteComboBox.getItems().contains(min)) {
+                    endMinuteComboBox.getItems().add(min);
+                    endMinuteComboBox.getItems().sort(Integer::compareTo);
+                }
+                endMinuteComboBox.setValue(min);
+            }
+        }
+        
+        // Set shift type
+        if (shiftTypeComboBox != null && shift.getShiftType() != null) {
+            shiftTypeComboBox.setValue(shift.getShiftType());
+        }
     }
 
     /**
